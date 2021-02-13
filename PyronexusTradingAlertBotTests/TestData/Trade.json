@@ -1,0 +1,3 @@
+
+
+{"success":1,"method":"getTrades","100604399":{"buy_amount":"1.00000000","buy_currency":"BTC","sell_amount":"3225.00000000","sell_currency":"GBP","fee_amount":"0.00000000","fee_currency":"","type":"Trade","exchange":"LocalBitcoins","group":"","comment":"","imported_from":"","time":"1502697000","imported_time":"1568662127","trade_id":""}}
