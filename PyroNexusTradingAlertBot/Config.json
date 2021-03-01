@@ -1,0 +1,60 @@
+{
+  "GlobalConfig": {
+    "BlacklistedPairs": [ "USD", "USDT", "BUSD", "TUSD", "USDC", "DAI", "USDK" ]
+  },
+  "SqliteConfig": {
+    "DatabaseFile": "PyroNexusTradingAlertBot.db"
+  },
+  "CoinTrackingConfig": {
+    "Cookie1": "",
+    "Cookie2": "",
+    "ApiKey": "",
+    "ApiSecret": "",
+    "UpdateJobs": [
+      {
+        "Name": "Binance",
+        "Path": "binance_api",
+        "JobIds": [ 42202 ]
+      },
+      {
+        "Name": "Bitfinex",
+        "Path": "bitfinex_api",
+        "JobIds": [ 9708 ]
+      },
+      {
+        "Name": "Bittrex",
+        "Path": "bittrex_api",
+        "JobIds": [ 25297 ]
+      },
+      {
+        "Name": "CEX",
+        "Path": "cex_api",
+        "JobIds": [ 1179 ]
+      },
+      {
+        "Name": "Coinbase",
+        "Path": "coinbase_api",
+        "JobIds": [ 27213 ]
+      },
+      {
+        "Name": "Coinbase Pro",
+        "Path": "coinbasepro_api",
+        "JobIds": [ 23244 ]
+      },
+      {
+        "Name": "HitBTC",
+        "Path": "hitbtc_api",
+        "JobIds": [ 8199 ]
+      },
+      {
+        "Name": "KuCoin",
+        "Path": "kucoin_api",
+        "JobIds": [ 9533 ]
+      }
+    ]
+  },
+  "DiscordConfig": {
+    "BotToken": "",
+    "ChannelId": 815799248792715335
+  }
+}

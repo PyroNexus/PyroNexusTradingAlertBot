@@ -76,8 +76,9 @@ namespace PyroNexusTradingAlertBot.Properties {
         ///  `time` datetime,
         ///  `imported_time` datetime,
         ///  `trade_id` varchar(256),
+        ///  `is_published` integer,
         ///  `cointracking_id` integer PRIMARY KEY DESC
-        ///) WITHOUT ROWID.
+        ///) WITHOUT ROWI [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Trades {
             get {

@@ -15,7 +15,7 @@ namespace PyronexusTradingAlertBotTests
     public class SetupCointrackingService: IDisposable
     {
         private readonly FileStream fs;
-        public CoinTracking cointracking;
+        public CoinTracking.LocalImportJobs cointracking;
         public SetupCointrackingService(string testDataFilename)
         {
             var mock = new Mock<HttpMessageHandler>();
@@ -34,14 +34,14 @@ namespace PyronexusTradingAlertBotTests
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(response);
 
-            IOptions<CoinTrackingOptions> coinTrackingOptions = Options.Create<CoinTrackingOptions>(new CoinTrackingOptions()
+            IOptions<CoinTrackingOptions> coinTrackingOptions = Options.Create(new CoinTrackingOptions()
             {
                 client = new HttpClient(mock.Object),
                 key = "a",
                 secret = "b"
             });
 
-            cointracking = new CoinTracking(coinTrackingOptions, null);
+            cointracking = new CoinTracking.LocalImportJobs(coinTrackingOptions, null);
         }
         public void Dispose()
         {

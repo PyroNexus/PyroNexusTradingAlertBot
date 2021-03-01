@@ -13,5 +13,8 @@ CREATE TABLE Trades (
   `time` datetime,
   `imported_time` datetime,
   `trade_id` varchar(256),
-  `cointracking_id` integer PRIMARY KEY DESC
+  `is_published` integer NOT NULL DEFAULT 0,
+  `is_ignored` integer NOT NULL DEFAULT 0,
+  `cointracking_id` integer NOT NULL,
+  PRIMARY KEY("cointracking_id" DESC)
 ) WITHOUT ROWID

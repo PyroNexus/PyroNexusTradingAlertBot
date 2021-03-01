@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -43,30 +44,23 @@ namespace PyroNexusTradingAlertBot.Storage
         { }
 
         public Sqlite(IOptions<SqliteOptions> options, ILogger<Sqlite> logger)
-            : this (new SqliteConnectionStringBuilder() {DataSource = options.Value.DataSource}.ConnectionString, logger)
+            : this(new SqliteConnectionStringBuilder() {DataSource = options.Value.DataSource}.ConnectionString, logger)
         { }
 
         public void Dispose()
         {
-            if (sqliteConnection.State != System.Data.ConnectionState.Closed || sqliteConnection != null)
+            if (sqliteConnection.State != System.Data.ConnectionState.Closed)
             {
                 sqliteConnection.Close();
                 sqliteConnection.Dispose();
+            }
+            if (sqliteConnection != null)
+            {
                 sqliteConnection = null;
             }
         }
 
-        private bool TableExists(string tableName)
-        {
-            using (var reader = ExecuteReader(string.Format("SELECT name FROM sqlite_master WHERE type='table' AND name='{0}';", tableName)))
-            {
-                if (reader.HasRows)
-                {
-                    return true;
-                }
-                return false;
-            }
-        }
+        
 
         private string SanitizeQueryText(string queryString)
         {
@@ -96,7 +90,59 @@ namespace PyroNexusTradingAlertBot.Storage
             }
         }
 
-        public virtual void Insert<T>(Dictionary<string, T> data, string tableName)
+        private void SetTradeColumnValue(string columnName, string columnValue, int coinTrackingTradeId)
+        {
+            var command = @"UPDATE Trades SET `{0}` = {1} WHERE cointracking_id = {2}";
+            command = string.Format(command, columnName, columnValue, coinTrackingTradeId);
+            var result = ExecuteNonQuery(command);
+            if (result != 1)
+            {
+                var exception = new Exception("Expected 1 row to be updated!");
+                _logger.LogError(exception, "Expected 1 row to be updated! Total rows updated: {0} trades updated for cointracking_id {1}", result, coinTrackingTradeId);
+                throw exception;
+            }
+        }
+
+        public void SetTradeIsPublishedToDiscord(int coinTrackingTradeId) => SetTradeColumnValue("is_published", "1", coinTrackingTradeId);
+        public void SetTradeIsIgnored(int coinTrackingTradeId) => SetTradeColumnValue("is_ignored", "1", coinTrackingTradeId);
+
+        public async Task GetTradesNotPublishedToDiscord(List<DbTrade> trades)
+        {
+            var dateFilter = DateTime.UtcNow.AddYears(-1).Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
+
+            var command = @"SELECT * FROM Trades WHERE is_published = 0 AND is_ignored = 0 AND type IN ('Trade', 'Margin Trade') AND time > {0} ORDER BY time ASC";
+            command = string.Format(command, dateFilter);
+            using (var reader = await ExecuteReaderAsync(command))
+            {
+                while (await reader.ReadAsync())
+                {
+                    trades.Add(CreateTrade(reader));
+                }
+            }
+        }
+
+        private DbTrade CreateTrade(SqliteDataReader reader) => new DbTrade()
+        {
+            buy_amount = reader["buy_amount"].ToString(),
+            buy_currency = reader["buy_currency"].ToString(),
+            comment = reader["comment"].ToString(),
+            exchange = reader["exchange"].ToString(),
+            fee_amount = reader["fee_amount"].ToString(),
+            fee_currency = reader["fee_currency"].ToString(),
+            imported_from = reader["imported_from"].ToString(),
+            group = reader["group"].ToString(),
+            imported_time = reader["imported_time"].ToString(),
+            sell_amount = reader["sell_amount"].ToString(),
+            sell_currency = reader["sell_currency"].ToString(),
+            time = reader["time"].ToString(),
+            trade_id = reader["trade_id"].ToString(),
+            type = reader["type"].ToString(),
+            is_published = Convert.ToInt32(reader["is_published"]),
+            is_ignored = Convert.ToInt32(reader["is_ignored"]),
+            cointracking_id = Convert.ToInt32(reader["cointracking_id"]),
+        };
+
+        private void Insert<T>(Dictionary<string, T> data, string tableName)
         {
             var props = typeof(T).GetProperties();
             string columns = "";
@@ -104,7 +150,9 @@ namespace PyroNexusTradingAlertBot.Storage
             {
                 columns += string.Format("`{0}`,", prop.Name);
             }
-            columns += "`cointracking_id`";
+            columns += "`is_published`";
+            columns += "`is_ignored`";
+            columns += "`cointracking_id`,";
 
             foreach (var row in data)
             {
@@ -144,14 +192,19 @@ namespace PyroNexusTradingAlertBot.Storage
 
                     values += value;
                 }
-                values += string.Format("{0}", row.Key);
+                int isPublishedToDiscord = 0;
+                values += string.Format("{0},{1}", row.Key, isPublishedToDiscord);
                 command = string.Format(command, tableName, columns, values, row.Key);
                 ExecuteNonQuery(command);
             }
         }
 
+        private bool TableExists(string tableName) => ExecuteReader(string.Format("SELECT name FROM sqlite_master WHERE type='table' AND name='{0}';", tableName)).HasRows;
+
         public virtual void InsertTrades(Dictionary<string, Trade> trades) => Insert(trades, "Trades");
         public virtual DbDataReader ExecuteReader(string commandText) => new SqliteCommand(SanitizeQueryText(commandText), sqliteConnection).ExecuteReader();
         public virtual int ExecuteNonQuery(string commandText) => new SqliteCommand(SanitizeQueryText(commandText), sqliteConnection).ExecuteNonQuery();
+
+        public virtual Task<SqliteDataReader> ExecuteReaderAsync(string commandText) => new SqliteCommand(SanitizeQueryText(commandText), sqliteConnection).ExecuteReaderAsync();
     }
 }

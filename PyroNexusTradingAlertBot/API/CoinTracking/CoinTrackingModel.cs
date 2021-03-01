@@ -24,6 +24,13 @@ public class Trade
     public string trade_id { get; set; }
 }
 
+public class DbTrade : Trade
+{
+    public int is_published { get; set; }
+    public int is_ignored { get; set; }
+    public int cointracking_id { get; set; }
+}
+
 public class Balance
 {
     public string amount { get; set; }
