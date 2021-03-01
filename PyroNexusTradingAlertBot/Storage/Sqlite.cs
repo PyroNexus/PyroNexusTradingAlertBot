@@ -150,9 +150,7 @@ namespace PyroNexusTradingAlertBot.Storage
             {
                 columns += string.Format("`{0}`,", prop.Name);
             }
-            columns += "`is_published`";
-            columns += "`is_ignored`";
-            columns += "`cointracking_id`,";
+            columns += "`cointracking_id`";
 
             foreach (var row in data)
             {
@@ -192,8 +190,7 @@ namespace PyroNexusTradingAlertBot.Storage
 
                     values += value;
                 }
-                int isPublishedToDiscord = 0;
-                values += string.Format("{0},{1}", row.Key, isPublishedToDiscord);
+                values += string.Format("{0}", row.Key);
                 command = string.Format(command, tableName, columns, values, row.Key);
                 ExecuteNonQuery(command);
             }
