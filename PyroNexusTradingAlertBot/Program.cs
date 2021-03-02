@@ -17,26 +17,34 @@ namespace PyroNexusTradingAlertBot
 {
     class Program
     {
-        private class Config
+        private sealed class Config
         {
             private IConfigurationRoot _configuration;
             public Config(string config) => _configuration = new ConfigurationBuilder()
                     .AddJsonFile(config)
                     .Build();
 
-            public T GetConfig<T>() where T : new()
+            public T Get<T>() where T : new()
             {
                 var obj = new T();
-                _configuration.GetSection(typeof(T).Name.ToLower()).Bind(obj);
+                _configuration.GetSection(typeof(T).Name).Bind(obj);
                 return obj;
             }
+
+            public GlobalConfig Global => Get<GlobalConfig>();
+            public CoinTrackingConfig CoinTracking => Get<CoinTrackingConfig>();
+            public DiscordConfig Discord => Get<DiscordConfig>();
+            public SqliteConfig Sqlite => Get<SqliteConfig>();
         }
 
         static private ILogger<Program> _logger;
+        static private ILogger<DiscordSocketClient> _discordSocketClientLogger;
+        static private ServiceProvider _services;
+        static private Config _config;
 
         private static Task LogDiscord(LogMessage msg)
         {
-            _logger.LogInformation(msg.ToString());
+            _discordSocketClientLogger.LogInformation(msg.ToString());
             return Task.CompletedTask;
         }
 
@@ -82,32 +90,27 @@ namespace PyroNexusTradingAlertBot
 
         static async Task Main(string[] args)
         {
-            var config = new Config("Config.json");
-
-            var globalConfig = config.GetConfig<GlobalConfig>();
-            var coinTrackingConfig = config.GetConfig<CoinTrackingConfig>();
-            var discordConfig = config.GetConfig<DiscordConfig>();
-            var sqliteConfig = config.GetConfig<SqliteConfig>();
+            _config = new Config("Config.json");
 
             var cookies = new CookieContainer();
             cookies.Add(new CookieCollection()
             {
-                new Cookie("cointracking_cookie", coinTrackingConfig.Cookie1, "/import", ".cointracking.info"),
-                new Cookie("cointracking_cookie2", coinTrackingConfig.Cookie2, "/import", ".cointracking.info")
+                new Cookie("cointracking_cookie", _config.CoinTracking.Cookie1, "/import", ".cointracking.info"),
+                new Cookie("cointracking_cookie2", _config.CoinTracking.Cookie2, "/import", ".cointracking.info")
             });
             var handler = new HttpClientHandler() { CookieContainer = cookies };
 
-            var serviceCollection = new ServiceCollection()
+            _services = new ServiceCollection()
                 .AddOptions()
                 .Configure<CoinTrackingOptions>(options => {
                     options.client = new HttpClient(handler);
-                    options.key = coinTrackingConfig.ApiKey;
-                    options.secret = coinTrackingConfig.ApiSecret;
-                    options.updateJobs = coinTrackingConfig.UpdateJobs;
+                    options.key = _config.CoinTracking.ApiKey;
+                    options.secret = _config.CoinTracking.ApiSecret;
+                    options.updateJobs = _config.CoinTracking.UpdateJobs;
                 })
                 .Configure<SqliteOptions>(options =>
                 {
-                    options.DataSource = sqliteConfig.DatabaseFile;
+                    options.DataSource = _config.Sqlite.DatabaseFile;
                 })
                 .AddSingleton<ICoinTracking.LocalImportJobs, CoinTracking.LocalImportJobs>()
                 .AddSingleton<ICoinTracking.RemoteUpdateJobs, CoinTracking.RemoteUpdateJobs>()
@@ -123,44 +126,49 @@ namespace PyroNexusTradingAlertBot
                 })
                 .BuildServiceProvider();
 
-            _logger = serviceCollection.GetService<ILoggerFactory>().CreateLogger<Program>();
+            _logger = _services.GetService<ILoggerFactory>().CreateLogger<Program>();
+            _discordSocketClientLogger = _services.GetService<ILoggerFactory>().CreateLogger<DiscordSocketClient>();
 
             _logger.LogInformation("Starting up...");
-            serviceCollection.GetService<ISqlite>().BuildSchema();
+            _services.GetService<ISqlite>().BuildSchema();
 
+            bool discordIsReady = false;
             var discord = new DiscordSocketClient();
-
             discord.Log += LogDiscord;
-            await discord.LoginAsync(TokenType.Bot, discordConfig.BotToken);
+            discord.Ready += () => {
+                discordIsReady = true;
+                return Task.CompletedTask;
+            };
+            await discord.LoginAsync(TokenType.Bot, _config.Discord.BotToken);
             await discord.StartAsync();
 
             Task getTradesTask = new Task(async () =>
             {
-                var discordChannel = discord.GetChannel(discordConfig.ChannelId) as SocketTextChannel;
+                var discordChannel = discord.GetChannel(_config.Discord.ChannelId) as SocketTextChannel;
 
                 while (true)
                 {
-                    await serviceCollection.GetService<ICoinTracking.RemoteUpdateJobs>().UpdateTrades();
+                    await _services.GetService<ICoinTracking.RemoteUpdateJobs>().UpdateTrades();
                     // Give cointracking a bit of time to process the new trades so they will hopefully be available via their API...
                     await Task.Delay(new TimeSpan(0, 5, 0));
 
-                    await serviceCollection.GetService<ICoinTracking.LocalImportJobs>().GetTrades().ContinueWith(
+                    await _services.GetService<ICoinTracking.LocalImportJobs>().GetTrades().ContinueWith(
                         trades =>
                         {
-                            serviceCollection.GetService<ISqlite>().InsertTrades(trades.Result);
+                            _services.GetService<ISqlite>().InsertTrades(trades.Result);
                         });
 
                     List<DbTrade> unpublishedTrades = new List<DbTrade>();
 
-                    serviceCollection.GetService<ISqlite>().GetTradesNotPublishedToDiscord(unpublishedTrades).Wait();
+                    _services.GetService<ISqlite>().GetTradesNotPublishedToDiscord(unpublishedTrades).Wait();
                     if (unpublishedTrades.Any())
                     {
                         _logger.LogInformation("Posting unpublished trades to discord.");
                         foreach (DbTrade trade in unpublishedTrades)
                         {
-                            if (globalConfig.BlacklistedPairs.Any(bp => bp == trade.buy_currency) && globalConfig.BlacklistedPairs.Any(bp => bp == trade.sell_currency)) {
+                            if (_config.Global.BlacklistedPairs.Any(bp => bp == trade.buy_currency) && _config.Global.BlacklistedPairs.Any(bp => bp == trade.sell_currency)) {
                                 _logger.LogDebug("Skipping trade because both pairs are blacklisted: {0} & {1}", trade.buy_currency, trade.sell_currency);
-                                serviceCollection.GetService<ISqlite>().SetTradeIsIgnored(trade.cointracking_id);
+                                _services.GetService<ISqlite>().SetTradeIsIgnored(trade.cointracking_id);
                                 continue;
                             }
 
@@ -193,7 +201,7 @@ namespace PyroNexusTradingAlertBot
                                 tries += 1;
                                 if (!task.IsFaulted)
                                 {
-                                    serviceCollection.GetService<ISqlite>().SetTradeIsPublishedToDiscord(trade.cointracking_id);
+                                    _services.GetService<ISqlite>().SetTradeIsPublishedToDiscord(trade.cointracking_id);
                                     messagePosted = true;
                                 }
                             });
@@ -216,13 +224,6 @@ namespace PyroNexusTradingAlertBot
                     await Task.Delay(new TimeSpan(0, 180, 0));
                 }
             });
-
-            bool discordIsReady = false;
-
-            discord.Ready += () => {
-                discordIsReady = true;
-                return Task.CompletedTask;
-            };
 
             while (true)
             {
