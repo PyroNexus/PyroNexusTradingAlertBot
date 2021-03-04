@@ -7,11 +7,11 @@ namespace PyroNexusTradingAlertBot.Storage
 {
     public interface ISqlite
     {
-        public void BuildSchema();
+        public Task BuildSchema();
         public void Dispose();
 
-        public void SetTradeIsPublishedToDiscord(int coinTrackingTradeId);
-        public void SetTradeIsIgnored(int coinTrackingTradeId);
+        public Task SetTradeIsPublishedToDiscord(int coinTrackingTradeId);
+        public Task SetTradeIsIgnored(int coinTrackingTradeId);
 
         public Task GetTradesNotPublishedToDiscord(List<DbTrade> trades);
         public void InsertTrades(Dictionary<string, Trade> trades);

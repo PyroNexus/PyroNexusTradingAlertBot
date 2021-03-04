@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Threading.Tasks;
@@ -21,12 +22,44 @@ namespace PyroNexusTradingAlertBot.Storage
             public string SchemaText;
         }
 
+        private class SchemaTables : IEnumerable<SchemaTable>
+        {
+            List<SchemaTable> schemaTables = new List<SchemaTable>();
+
+            public SchemaTables()
+            {
+                schemaTables.Add(new SchemaTable() { Name = "Trades", SchemaText = Properties.SQL.Trades });
+            }
+
+            public SchemaTable this[int index]
+            {
+                get { return schemaTables[index]; }
+                set { schemaTables.Insert(index, value); }
+            }
+
+            public SchemaTable this[string name]
+            {
+                get { return schemaTables.Find(st => st.Name == name); }
+            }
+
+            public IEnumerator<SchemaTable> GetEnumerator()
+            {
+                return schemaTables.GetEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+        }
+
         private static class Schema
         {
-            static public List<SchemaTable> Tables = new List<SchemaTable>
+            static public SchemaTables AllTables = new SchemaTables();
+            static public class Tables
             {
-                new SchemaTable(){ Name = "Trades", SchemaText = Properties.SQL.Trades }
-            };
+                static public SchemaTable Trades = AllTables["Trades"];
+            }
         }
 
         protected readonly ILogger _logger;
@@ -60,18 +93,16 @@ namespace PyroNexusTradingAlertBot.Storage
             }
         }
 
-        
-
         private string SanitizeQueryText(string queryString)
         {
             return queryString.Replace("\r", "").Replace("\n", "");
         }
 
-        public void BuildSchema()
+        public Task BuildSchema()
         {
             _logger.LogDebug("Building DB schema...");
 
-            foreach (SchemaTable table in Schema.Tables)
+            foreach (SchemaTable table in Schema.AllTables)
             {
                 if (TableExists(table.Name))
                 {
@@ -88,12 +119,13 @@ namespace PyroNexusTradingAlertBot.Storage
                     throw exception;
                 }
             }
+            return Task.CompletedTask;
         }
 
-        private void SetTradeColumnValue(string columnName, string columnValue, int coinTrackingTradeId)
+        private Task SetColumnValue(string tableName, string columnName, string columnValue, int coinTrackingTradeId)
         {
-            var command = @"UPDATE Trades SET `{0}` = {1} WHERE cointracking_id = {2}";
-            command = string.Format(command, columnName, columnValue, coinTrackingTradeId);
+            var command = @"UPDATE {0} SET `{1}` = {2} WHERE cointracking_id = {3}";
+            command = string.Format(command, tableName, columnName, columnValue, coinTrackingTradeId);
             var result = ExecuteNonQuery(command);
             if (result != 1)
             {
@@ -101,10 +133,11 @@ namespace PyroNexusTradingAlertBot.Storage
                 _logger.LogError(exception, "Expected 1 row to be updated! Total rows updated: {0} trades updated for cointracking_id {1}", result, coinTrackingTradeId);
                 throw exception;
             }
+            return Task.CompletedTask;
         }
 
-        public void SetTradeIsPublishedToDiscord(int coinTrackingTradeId) => SetTradeColumnValue("is_published", "1", coinTrackingTradeId);
-        public void SetTradeIsIgnored(int coinTrackingTradeId) => SetTradeColumnValue("is_ignored", "1", coinTrackingTradeId);
+        public Task SetTradeIsPublishedToDiscord(int coinTrackingTradeId) => SetColumnValue(Schema.Tables.Trades.Name, "is_published", "1", coinTrackingTradeId);
+        public Task SetTradeIsIgnored(int coinTrackingTradeId) => SetColumnValue(Schema.Tables.Trades.Name, "is_ignored", "1", coinTrackingTradeId);
 
         public async Task GetTradesNotPublishedToDiscord(List<DbTrade> trades)
         {
@@ -116,31 +149,10 @@ namespace PyroNexusTradingAlertBot.Storage
             {
                 while (await reader.ReadAsync())
                 {
-                    trades.Add(CreateTrade(reader));
+                    trades.Add(new DbTrade(reader));
                 }
             }
         }
-
-        private DbTrade CreateTrade(SqliteDataReader reader) => new DbTrade()
-        {
-            buy_amount = reader["buy_amount"].ToString(),
-            buy_currency = reader["buy_currency"].ToString(),
-            comment = reader["comment"].ToString(),
-            exchange = reader["exchange"].ToString(),
-            fee_amount = reader["fee_amount"].ToString(),
-            fee_currency = reader["fee_currency"].ToString(),
-            imported_from = reader["imported_from"].ToString(),
-            group = reader["group"].ToString(),
-            imported_time = reader["imported_time"].ToString(),
-            sell_amount = reader["sell_amount"].ToString(),
-            sell_currency = reader["sell_currency"].ToString(),
-            time = reader["time"].ToString(),
-            trade_id = reader["trade_id"].ToString(),
-            type = reader["type"].ToString(),
-            is_published = Convert.ToInt32(reader["is_published"]),
-            is_ignored = Convert.ToInt32(reader["is_ignored"]),
-            cointracking_id = Convert.ToInt32(reader["cointracking_id"]),
-        };
 
         private void Insert<T>(Dictionary<string, T> data, string tableName)
         {
@@ -201,7 +213,6 @@ namespace PyroNexusTradingAlertBot.Storage
         public virtual void InsertTrades(Dictionary<string, Trade> trades) => Insert(trades, "Trades");
         public virtual DbDataReader ExecuteReader(string commandText) => new SqliteCommand(SanitizeQueryText(commandText), sqliteConnection).ExecuteReader();
         public virtual int ExecuteNonQuery(string commandText) => new SqliteCommand(SanitizeQueryText(commandText), sqliteConnection).ExecuteNonQuery();
-
         public virtual Task<SqliteDataReader> ExecuteReaderAsync(string commandText) => new SqliteCommand(SanitizeQueryText(commandText), sqliteConnection).ExecuteReaderAsync();
     }
 }

@@ -13,6 +13,7 @@ namespace PyroNexusTradingAlertBot
     {
         public string DatabaseFile { get; set; }
     }
+
     public class CoinTrackingConfig
     {
         public string Cookie1 { get; set; }

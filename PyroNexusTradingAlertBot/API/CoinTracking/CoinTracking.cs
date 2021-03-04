@@ -24,7 +24,7 @@ namespace PyroNexusTradingAlertBot.API
         public List<CoinTrackingUpdateJob> updateJobs { get; set; }
     }
 
-    public class CoinTracking
+    public abstract class CoinTracking : ICoinTracking
     {
         public class RemoteUpdateJobs : CoinTracking, ICoinTracking.RemoteUpdateJobs
         {
@@ -255,6 +255,18 @@ namespace PyroNexusTradingAlertBot.API
             apiKey = options.Value.key;
             apiSecret = options.Value.secret;
             _logger = logger;
+        }
+
+        public static HttpClient GetClient(string cookie1, string cookie2)
+        {
+            var cookies = new CookieContainer();
+            cookies.Add(new CookieCollection()
+            {
+                new Cookie("cointracking_cookie", cookie1, "/import", ".cointracking.info"),
+                new Cookie("cointracking_cookie2", cookie2, "/import", ".cointracking.info")
+            });
+            var handler = new HttpClientHandler() { CookieContainer = cookies };
+            return new HttpClient(handler); 
         }
 
 
