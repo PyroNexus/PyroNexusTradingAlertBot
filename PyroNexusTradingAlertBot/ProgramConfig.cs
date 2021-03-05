@@ -7,6 +7,28 @@ namespace PyroNexusTradingAlertBot
     public class GlobalConfig
     {
         public string[] BlacklistedPairs { get; set; }
+
+        private static int _minimumPublishTradesRefreshInterval = 1;
+        private static int _defaultPublishTradesRefreshInterval = 2;
+        private int _publishTradesRefreshInterval;
+        public int PublishTradesRefreshInterval {
+            get
+            {
+                switch (_publishTradesRefreshInterval)
+                {
+                    case 0:
+                        return _defaultPublishTradesRefreshInterval;
+                    case int number when number < _minimumPublishTradesRefreshInterval:
+                        return _minimumPublishTradesRefreshInterval;
+                    default:
+                        return _publishTradesRefreshInterval;
+                }
+            }
+            set
+            {
+                _publishTradesRefreshInterval = value;
+            }
+        }
     }
 
     public class SqliteConfig
@@ -21,6 +43,28 @@ namespace PyroNexusTradingAlertBot
         public string ApiKey { get; set; }
         public string ApiSecret { get; set; }
         public List<CoinTrackingUpdateJob> UpdateJobs { get; set; }
+
+        private static int _minimumUpdateJobsRefreshInterval = 1;
+        private static int _defaultUpdateJobsRefreshInterval = 3;
+        private int _updateJobsRefreshInterval;
+        public int UpdateJobsRefreshInterval {
+            get
+            {
+                switch (_updateJobsRefreshInterval)
+                {
+                    case 0:
+                        return _defaultUpdateJobsRefreshInterval;
+                    case int number when number < _minimumUpdateJobsRefreshInterval:
+                        return _minimumUpdateJobsRefreshInterval;
+                    default:
+                        return _updateJobsRefreshInterval;
+                }
+            }
+            set
+            {
+                _updateJobsRefreshInterval = value;
+            }
+        }
     }
 
     public class CoinTrackingUpdateJob

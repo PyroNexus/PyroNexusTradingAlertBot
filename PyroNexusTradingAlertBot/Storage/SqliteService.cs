@@ -14,7 +14,7 @@ namespace PyroNexusTradingAlertBot.Storage
         public string DataSource { get; set; }
     }
 
-    public class Sqlite : ISqlite, IDisposable
+    public class SqliteService : ISqliteService, IDisposable
     {
         private class SchemaTable
         {
@@ -24,7 +24,7 @@ namespace PyroNexusTradingAlertBot.Storage
 
         private class SchemaTables : IEnumerable<SchemaTable>
         {
-            List<SchemaTable> schemaTables = new List<SchemaTable>();
+            readonly List<SchemaTable> schemaTables = new List<SchemaTable>();
 
             public SchemaTables()
             {
@@ -34,7 +34,6 @@ namespace PyroNexusTradingAlertBot.Storage
             public SchemaTable this[int index]
             {
                 get { return schemaTables[index]; }
-                set { schemaTables.Insert(index, value); }
             }
 
             public SchemaTable this[string name]
@@ -65,18 +64,18 @@ namespace PyroNexusTradingAlertBot.Storage
         protected readonly ILogger _logger;
         protected SqliteConnection sqliteConnection;
 
-        public Sqlite(SqliteConnection connection, ILogger<Sqlite> logger)
+        public SqliteService(SqliteConnection connection, ILogger<SqliteService> logger)
         {
             _logger = logger;
             sqliteConnection = connection;
             sqliteConnection.Open();
         }
 
-        public Sqlite(string connectionString, ILogger<Sqlite> logger)
+        public SqliteService(string connectionString, ILogger<SqliteService> logger)
             : this(new SqliteConnection(connectionString), logger)
         { }
 
-        public Sqlite(IOptions<SqliteOptions> options, ILogger<Sqlite> logger)
+        public SqliteService(IOptions<SqliteOptions> options, ILogger<SqliteService> logger)
             : this(new SqliteConnectionStringBuilder() {DataSource = options.Value.DataSource}.ConnectionString, logger)
         { }
 
@@ -136,21 +135,17 @@ namespace PyroNexusTradingAlertBot.Storage
             return Task.CompletedTask;
         }
 
-        public Task SetTradeIsPublishedToDiscord(int coinTrackingTradeId) => SetColumnValue(Schema.Tables.Trades.Name, "is_published", "1", coinTrackingTradeId);
+        public Task SetTradeIsPublished(int coinTrackingTradeId) => SetColumnValue(Schema.Tables.Trades.Name, "is_published", "1", coinTrackingTradeId);
         public Task SetTradeIsIgnored(int coinTrackingTradeId) => SetColumnValue(Schema.Tables.Trades.Name, "is_ignored", "1", coinTrackingTradeId);
 
-        public async Task GetTradesNotPublishedToDiscord(List<DbTrade> trades)
+        public async Task GetTradesNotPublishedToDiscord(List<DbTrade> trades, double dateFilter)
         {
-            var dateFilter = DateTime.UtcNow.AddYears(-1).Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
-
             var command = @"SELECT * FROM Trades WHERE is_published = 0 AND is_ignored = 0 AND type IN ('Trade', 'Margin Trade') AND time > {0} ORDER BY time ASC";
             command = string.Format(command, dateFilter);
-            using (var reader = await ExecuteReaderAsync(command))
+            using var reader = await ExecuteReaderAsync(command);
+            while (await reader.ReadAsync())
             {
-                while (await reader.ReadAsync())
-                {
-                    trades.Add(new DbTrade(reader));
-                }
+                trades.Add(new DbTrade(reader));
             }
         }
 

@@ -4,14 +4,14 @@ using System.Threading.Tasks;
 
 namespace PyroNexusTradingAlertBot.API
 {
-    public interface ICoinTracking
+    public interface ICoinTrackingService
     {
-        public interface LocalImportJobs
+        public interface LocalImport
         {
             Task<Dictionary<string, Trade>> GetTrades(int limit = 0, string order = "ASC", int start = 0, int end = 0, bool tradePrices = false);
         }
 
-        public interface RemoteUpdateJobs
+        public interface RemoteUpdate
         {
             Task UpdateTrades();
         }

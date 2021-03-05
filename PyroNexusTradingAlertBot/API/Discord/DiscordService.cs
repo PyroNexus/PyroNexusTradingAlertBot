@@ -16,13 +16,13 @@ namespace PyroNexusTradingAlertBot.API
     {
         private readonly ILogger _logger;
         private readonly DiscordSocketClient _client;
-        private TaskCompletionSource<bool> _ready = new TaskCompletionSource<bool>();
+        private readonly TaskCompletionSource<bool> _ready = new TaskCompletionSource<bool>();
 
         public DiscordService(IOptions<DiscordServiceOptions> options, ILogger<DiscordService> logger)
         {
             _logger = logger;
             _client = new DiscordSocketClient();
-            _client.Log += LogDiscord;
+            _client.Log += Log;
             _client.Ready += OnReady;
             _client.LoginAsync(TokenType.Bot, options.Value.BotToken);
             _client.StartAsync();
@@ -30,7 +30,8 @@ namespace PyroNexusTradingAlertBot.API
 
         public SocketTextChannel GetSocketTextChannel(ulong channelId) => _client.GetChannel(channelId) as SocketTextChannel;
 
-        public async Task<bool> Ready() {
+        public async Task<bool> Ready()
+        {
             await _ready.Task;
             return _ready.Task.Result;
         }
@@ -41,7 +42,7 @@ namespace PyroNexusTradingAlertBot.API
             return Task.CompletedTask;
         }
 
-        private Task LogDiscord(LogMessage msg)
+        private Task Log(LogMessage msg)
         {
             _logger.LogInformation(msg.ToString());
             return Task.CompletedTask;

@@ -22,9 +22,9 @@ namespace PyronexusTradingAlertBotTests
             mockDataReader.Setup(m => m.HasRows).Returns(() => false);
 
             var mockSqliteConnection = new Mock<SqliteConnection>();
-            var mockLogger = new Mock<ILogger<Sqlite>>();
+            var mockLogger = new Mock<ILogger<SqliteService>>();
 
-            var mockSqlite = new Mock<Sqlite>(mockSqliteConnection.Object, mockLogger.Object);
+            var mockSqlite = new Mock<SqliteService>(mockSqliteConnection.Object, mockLogger.Object);
             mockSqlite.Setup(m => m.ExecuteNonQuery(It.IsAny<string>()));
             mockSqlite.Setup(m => m.ExecuteReader(It.IsAny<string>())).Returns(() => mockDataReader.Object);
 

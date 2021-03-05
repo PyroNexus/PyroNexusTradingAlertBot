@@ -12,10 +12,10 @@ using System.Linq;
 
 namespace PyronexusTradingAlertBotTests
 {
-    public class SetupCointrackingService: IDisposable
+    public class SetupCointrackingService : IDisposable
     {
         private readonly FileStream fs;
-        public CoinTracking.LocalImportJobs cointracking;
+        public CoinTrackingService.LocalImport cointracking;
         public SetupCointrackingService(string testDataFilename)
         {
             var mock = new Mock<HttpMessageHandler>();
@@ -36,12 +36,12 @@ namespace PyronexusTradingAlertBotTests
 
             IOptions<CoinTrackingOptions> coinTrackingOptions = Options.Create(new CoinTrackingOptions()
             {
-                client = new HttpClient(mock.Object),
-                key = "a",
-                secret = "b"
+                Client = new HttpClient(mock.Object),
+                Key = "a",
+                Secret = "b"
             });
 
-            cointracking = new CoinTracking.LocalImportJobs(coinTrackingOptions, null);
+            cointracking = new CoinTrackingService.LocalImport(coinTrackingOptions, null);
         }
         public void Dispose()
         {
@@ -59,11 +59,9 @@ namespace PyronexusTradingAlertBotTests
         [TestMethod]
         public async Task TestGetTrades()
         {
-            using (var service = new SetupCointrackingService("Trade"))
-            {
-                var trades = await service.cointracking.GetTrades();
-                Assert.AreEqual(trades.Single(t => t.Key == "100604399").Value.time, "1502697000");
-            }
+            using var service = new SetupCointrackingService("Trade");
+            var trades = await service.cointracking.GetTrades();
+            Assert.AreEqual(trades.Single(t => t.Key == "100604399").Value.time, "1502697000");
         }
     }
 }

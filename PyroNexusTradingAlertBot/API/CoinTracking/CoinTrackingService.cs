@@ -18,32 +18,35 @@ namespace PyroNexusTradingAlertBot.API
 {
     public class CoinTrackingOptions
     {
-        public string key { get; set; }
-        public string secret { get; set; }
-        public HttpClient client { get; set; }
-        public List<CoinTrackingUpdateJob> updateJobs { get; set; }
+        public string Key { get; set; }
+        public string Secret { get; set; }
+        public HttpClient Client { get; set; }
+        public List<CoinTrackingUpdateJob> UpdateJobs { get; set; }
+        public int UpdateJobsRefreshInterval { get; set; }
     }
 
-    public abstract class CoinTracking : ICoinTracking
+    public abstract class CoinTrackingService : ICoinTrackingService
     {
-        public class RemoteUpdateJobs : CoinTracking, ICoinTracking.RemoteUpdateJobs
+        public class RemoteUpdate : CoinTrackingService, ICoinTrackingService.RemoteUpdate
         {
-            public RemoteUpdateJobs(IOptions<CoinTrackingOptions> options, ILogger<RemoteUpdateJobs> logger)
+            public RemoteUpdate(IOptions<CoinTrackingOptions> options, ILogger<RemoteUpdate> logger)
                 : base(options, logger)
             {
-                coinTrackingUpdateJobs = options.Value.updateJobs;
+                _coinTrackingUpdateJobs = options.Value.UpdateJobs;
+                updateJobsRefreshInterval = options.Value.UpdateJobsRefreshInterval;
             }
 
-            private List<CoinTrackingUpdateJob> coinTrackingUpdateJobs;
+            private readonly List<CoinTrackingUpdateJob> _coinTrackingUpdateJobs;
+            private readonly int updateJobsRefreshInterval;
 
-            private async Task runUpdateJobs(List<CoinTrackingUpdateJob> jobs)
+            private async Task RunUpdateJobs(List<CoinTrackingUpdateJob> jobs)
             {
                 int delay = 15;
                 foreach (CoinTrackingUpdateJob job in jobs)
                 {
                     _logger.LogDebug("Running update jobs for {0}", job.Name);
                     
-                    await runUpdateJob(job);
+                    await RunUpdateJob(job);
                     if (jobs.Last() == job)
                     {
                         _logger.LogDebug("Update finished for {0}. No more jobs to run.", job.Name);
@@ -56,7 +59,7 @@ namespace PyroNexusTradingAlertBot.API
                 }
             }
 
-            private async Task runUpdateJob(CoinTrackingUpdateJob job)
+            private async Task RunUpdateJob(CoinTrackingUpdateJob job)
             {
                 var delay = 10;
                 foreach (int jobId in job.JobIds)
@@ -95,21 +98,22 @@ namespace PyroNexusTradingAlertBot.API
 
             public async Task UpdateTrades()
             {
-                _logger.LogInformation("Running update jobs...");
+                while (true)
+                {
+                    _logger.LogInformation("Running...");
+                    await Task.Run(() => RunUpdateJobs(_coinTrackingUpdateJobs));
 
-                await Task.Run(() => runUpdateJobs(coinTrackingUpdateJobs));
-
-                _logger.LogInformation("Update jobs finished...");
+                    _logger.LogInformation("Complete. Waiting {0} hours for next run.", updateJobsRefreshInterval);
+                    await Task.Delay(new TimeSpan(updateJobsRefreshInterval, 0, 0));
+                }
             }
         }
 
-        public class LocalImportJobs : CoinTracking, ICoinTracking.LocalImportJobs
+        public class LocalImport : CoinTrackingService, ICoinTrackingService.LocalImport
         {
-            public LocalImportJobs(IOptions<CoinTrackingOptions> options, ILogger<LocalImportJobs> logger)
+            public LocalImport(IOptions<CoinTrackingOptions> options, ILogger<LocalImport> logger)
                 : base(options, logger)
-            {
-
-            }
+            { }
 
             private class RequestType
             {
@@ -121,7 +125,7 @@ namespace PyroNexusTradingAlertBot.API
                 public const string Gains = "getGains";
             }
 
-            private FormUrlEncodedContent prepareRequestData(string method, IEnumerable<KeyValuePair<string, string>> data)
+            private FormUrlEncodedContent PrepareRequestData(string method, IEnumerable<KeyValuePair<string, string>> data)
             {
                 return new FormUrlEncodedContent(
                     Enumerable.Concat(
@@ -134,7 +138,7 @@ namespace PyroNexusTradingAlertBot.API
                     );
             }
 
-            private async Task signMessage(FormUrlEncodedContent formData)
+            private async Task SignMessage(FormUrlEncodedContent formData)
             {
                 HMACSHA512 hmac = new HMACSHA512(Encoding.ASCII.GetBytes(apiSecret));
                 byte[] sign = hmac.ComputeHash(await formData.ReadAsByteArrayAsync());
@@ -143,7 +147,7 @@ namespace PyroNexusTradingAlertBot.API
                 formData.Headers.Add("Sign", BitConverter.ToString(sign).Replace("-", string.Empty).ToLower());
             }
 
-            private async Task<bool> checkResult(Stream stream)
+            private async Task<bool> CheckResult(Stream stream)
             {
                 var json = await JsonSerializer.DeserializeAsync<Result>(stream);
 
@@ -163,7 +167,7 @@ namespace PyroNexusTradingAlertBot.API
                 return true;
             }
 
-            private async Task processStream<T>(Stream stream, Dictionary<string, T> result) where T : class
+            private async Task ProcessStream<T>(Stream stream, Dictionary<string, T> result) where T : class
             {
                 var json = await JsonSerializer.DeserializeAsync<Dictionary<string, object>>(stream);
 
@@ -186,8 +190,8 @@ namespace PyroNexusTradingAlertBot.API
 
             private async Task<Dictionary<string, T>> DoPost<T>(string request, List<KeyValuePair<string, string>> requestParams) where T : class
             {
-                FormUrlEncodedContent formData = prepareRequestData(request, requestParams);
-                await signMessage(formData);
+                FormUrlEncodedContent formData = PrepareRequestData(request, requestParams);
+                await SignMessage(formData);
 
                 HttpResponseMessage response = await client.PostAsync(apiUrl, formData);
                 response.EnsureSuccessStatusCode();
@@ -195,11 +199,11 @@ namespace PyroNexusTradingAlertBot.API
                 var stream = await response.Content.ReadAsStreamAsync();
                 var result = new Dictionary<string, T>();
 
-                var ok = await checkResult(stream);
+                var ok = await CheckResult(stream);
                 if (ok)
                 {
                     stream.Position = 0;
-                    await processStream(stream, result);
+                    await ProcessStream(stream, result);
                 }
                 return result;
             }
@@ -211,6 +215,7 @@ namespace PyroNexusTradingAlertBot.API
 
             public async Task<Dictionary<string, Trade>> GetTrades(int limit = 0, string order = "ASC", int start = 0, int end = 0, bool tradePrices = false)
             {
+                _logger.LogInformation("Requesting trades from CoinTracking...");
                 List<KeyValuePair<string, string>> optionalParams = new List<KeyValuePair<string, string>>();
 
                 if (limit > 0)
@@ -249,11 +254,11 @@ namespace PyroNexusTradingAlertBot.API
         private readonly string apiKey;
         private readonly string apiSecret;
 
-        private CoinTracking(IOptions<CoinTrackingOptions> options, ILogger logger)
+        private CoinTrackingService(IOptions<CoinTrackingOptions> options, ILogger logger)
         {
-            client = options.Value.client;
-            apiKey = options.Value.key;
-            apiSecret = options.Value.secret;
+            client = options.Value.Client;
+            apiKey = options.Value.Key;
+            apiSecret = options.Value.Secret;
             _logger = logger;
         }
 

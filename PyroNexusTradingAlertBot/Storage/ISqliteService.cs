@@ -5,15 +5,15 @@ using System.Threading.Tasks;
 
 namespace PyroNexusTradingAlertBot.Storage
 {
-    public interface ISqlite
+    public interface ISqliteService
     {
         public Task BuildSchema();
         public void Dispose();
 
-        public Task SetTradeIsPublishedToDiscord(int coinTrackingTradeId);
+        public Task SetTradeIsPublished(int coinTrackingTradeId);
         public Task SetTradeIsIgnored(int coinTrackingTradeId);
 
-        public Task GetTradesNotPublishedToDiscord(List<DbTrade> trades);
+        public Task GetTradesNotPublishedToDiscord(List<DbTrade> trades, double dateFilter);
         public void InsertTrades(Dictionary<string, Trade> trades);
         public DbDataReader ExecuteReader(string commandText);
         public int ExecuteNonQuery(string commandText);
