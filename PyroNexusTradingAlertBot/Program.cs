@@ -11,6 +11,7 @@ using System;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using PyroNexusTradingAlertBot.API.Exchanges;
 
 namespace PyroNexusTradingAlertBot
 {
@@ -31,9 +32,9 @@ namespace PyroNexusTradingAlertBot
             }
 
             public GlobalConfig Global => Get<GlobalConfig>();
-            public CoinTrackingConfig CoinTracking => Get<CoinTrackingConfig>();
             public DiscordConfig Discord => Get<DiscordConfig>();
             public SqliteConfig Sqlite => Get<SqliteConfig>();
+            public BitfinexConfig Bitfinex => Get<BitfinexConfig>();
         }
 
         private static ILogger _logger;
@@ -44,15 +45,13 @@ namespace PyroNexusTradingAlertBot
         {
             _config = new Config("Config.json");
 
+
             _services = new ServiceCollection()
                 .AddOptions()
-                .Configure<CoinTrackingOptions>(options =>
+                .Configure<BitfinexExchangeServiceOptions>(options =>
                 {
-                    options.Client = CoinTrackingService.GetClient(_config.CoinTracking.Cookie1, _config.CoinTracking.Cookie2);
-                    options.Key = _config.CoinTracking.ApiKey;
-                    options.Secret = _config.CoinTracking.ApiSecret;
-                    options.UpdateJobs = _config.CoinTracking.UpdateJobs;
-                    options.UpdateJobsRefreshInterval = _config.CoinTracking.UpdateJobsRefreshInterval;
+                    options.Key = _config.Bitfinex.Key;
+                    options.Secret = _config.Bitfinex.Secret;
                 })
                 .Configure<SqliteOptions>(options =>
                 {
@@ -62,10 +61,11 @@ namespace PyroNexusTradingAlertBot
                 {
                     options.BotToken = _config.Discord.BotToken;
                 })
-                .AddSingleton<ICoinTrackingService.LocalImport, CoinTrackingService.LocalImport>()
-                .AddSingleton<ICoinTrackingService.RemoteUpdate, CoinTrackingService.RemoteUpdate>()
                 .AddSingleton<ISqliteService, SqliteService>()
                 .AddSingleton<IDiscordService, DiscordService>()
+                .AddSingleton<IBitfinexExchangeService, BitfinexExchangeService>()
+                //.AddSingleton<ICoinTrackingService.LocalImport, CoinTrackingService.LocalImport>()
+                //.AddSingleton<ICoinTrackingService.RemoteUpdate, CoinTrackingService.RemoteUpdate>()
                 .AddLogging(logging =>
                 {
                     logging.SetMinimumLevel(LogLevel.Trace);
@@ -77,27 +77,29 @@ namespace PyroNexusTradingAlertBot
                 })
                 .BuildServiceProvider();
 
-            IOptions<PublishTradesOptions> publishTradesOptions = Options.Create(new PublishTradesOptions()
-            {
-                DiscordService = _services.GetService<IDiscordService>(),
-                LocalImportService = _services.GetService<ICoinTrackingService.LocalImport>(),
-                SqliteService = _services.GetService<ISqliteService>(),
-                RefreshInterval = _config.Global.PublishTradesRefreshInterval
-            });
-            ILogger<PublishTrades> publishTradesLogger = _services.GetService<ILoggerFactory>().CreateLogger<PublishTrades>();
+            _services.GetService<IBitfinexExchangeService>().GetCurrencies();
+
+            //IOptions<PublishTradesOptions> publishTradesOptions = Options.Create(new PublishTradesOptions()
+            //{
+            //    DiscordService = _services.GetService<IDiscordService>(),
+            //    LocalImportService = _services.GetService<ICoinTrackingService.LocalImport>(),
+            //    SqliteService = _services.GetService<ISqliteService>(),
+            //    RefreshInterval = _config.Global.PublishTradesRefreshInterval
+            //});
+            //ILogger<PublishTrades> publishTradesLogger = _services.GetService<ILoggerFactory>().CreateLogger<PublishTrades>();
 
             _logger = _services.GetService<ILoggerFactory>().CreateLogger<Program>();
             _logger.LogInformation("Starting up...");
 
-            Task buildSchema = _services.GetService<ISqliteService>().BuildSchema();
-            Task discordReady = _services.GetService<IDiscordService>().Ready();
-            Task remoteUpdateJobs = _services.GetService<ICoinTrackingService.RemoteUpdate>().UpdateTrades();
+            //Task buildSchema = _services.GetService<ISqliteService>().BuildSchema();
+            //Task discordReady = _services.GetService<IDiscordService>().Ready();
+            //Task remoteUpdateJobs = _services.GetService<ICoinTrackingService.RemoteUpdate>().UpdateTrades();
 
-            await buildSchema;
-            await discordReady;
+            //await buildSchema;
+            //await discordReady;
 
-            Task publishTrades = new PublishTrades(publishTradesOptions, publishTradesLogger)
-                .TradesTask(_config.Discord.ChannelId, _config.Global.BlacklistedPairs);
+            //Task publishTrades = new PublishTrades(publishTradesOptions, publishTradesLogger)
+            //    .TradesTask(_config.Discord.ChannelId, _config.Global.BlacklistedPairs);
 
             await Task.Delay(-1);
         }

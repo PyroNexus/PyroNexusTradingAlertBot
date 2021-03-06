@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace PyroNexusTradingAlertBot
 {
@@ -34,6 +33,34 @@ namespace PyroNexusTradingAlertBot
     public class SqliteConfig
     {
         public string DatabaseFile { get; set; }
+    }
+
+    public class BitfinexConfig
+    {
+        private string _key;
+        public string Key
+        {
+            get
+            {
+                return _key;
+            }
+            set
+            {
+                _key = new Helpers.CryptoHelper().DecryptString(value);
+            }
+        }
+        private string _secret;
+        public string Secret
+        {
+            get
+            {
+                return _secret;
+            }
+            set
+            {
+                _secret = new Helpers.CryptoHelper().DecryptString(value);
+            }
+        }
     }
 
     public class CoinTrackingConfig
@@ -76,7 +103,18 @@ namespace PyroNexusTradingAlertBot
 
     public class DiscordConfig
     {
-        public string BotToken { get; set; }
+        private string _botToken;
+        public string BotToken
+        {
+            get
+            {
+                return _botToken;
+            }
+            set
+            {
+                _botToken = new Helpers.CryptoHelper().DecryptString(value);
+            }
+        }
         public ulong ChannelId { get; set; }
     }
 }

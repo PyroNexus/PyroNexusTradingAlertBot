@@ -6,57 +6,12 @@
   "SqliteConfig": {
     "DatabaseFile": "PyroNexusTradingAlertBot.db"
   },
-  "CoinTrackingConfig": {
-    "Cookie1": "",
-    "Cookie2": "",
-    "ApiKey": "",
-    "ApiSecret": "",
-    "UpdateJobsRefreshInterval": 3,
-    "UpdateJobs": [
-      {
-        "Name": "Binance",
-        "Path": "binance_api",
-        "JobIds": [ 42202 ]
-      },
-      {
-        "Name": "Bitfinex",
-        "Path": "bitfinex_api",
-        "JobIds": [ 9708 ]
-      },
-      {
-        "Name": "Bittrex",
-        "Path": "bittrex_api",
-        "JobIds": [ 25297 ]
-      },
-      {
-        "Name": "CEX",
-        "Path": "cex_api",
-        "JobIds": [ 1179 ]
-      },
-      {
-        "Name": "Coinbase",
-        "Path": "coinbase_api",
-        "JobIds": [ 27213 ]
-      },
-      {
-        "Name": "Coinbase Pro",
-        "Path": "coinbasepro_api",
-        "JobIds": [ 23244 ]
-      },
-      {
-        "Name": "HitBTC",
-        "Path": "hitbtc_api",
-        "JobIds": [ 8199 ]
-      },
-      {
-        "Name": "KuCoin",
-        "Path": "kucoin_api",
-        "JobIds": [ 9533 ]
-      }
-    ]
+  "BitfinexConfig": {
+    "Key": "wSMoPnyj7m6Q4U4hguIaDaAf5R8nKv+4ncOcpjfiqmHQ/cDPo1Ce3EuweRLdtPWy",
+    "Secret": "XU23ZxlSIE05GEN33RjXt421kesCRsGV34IMy06hokXXvOrIbfxD1liKX0LjccPH"
   },
   "DiscordConfig": {
-    "BotToken": "",
+    "BotToken": "MEc35PkOYpVGTnRmGcPMlIfKkAdLaUXQst9KDWl4JYB/jU29c8cWxaxCnEOuPsdIlspmM+XLGmeewrsRIz/Chg==",
     "ChannelId": 815799248792715335
   }
 }
