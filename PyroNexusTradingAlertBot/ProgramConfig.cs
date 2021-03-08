@@ -30,9 +30,26 @@ namespace PyroNexusTradingAlertBot
         }
     }
 
-    public class SqliteConfig
+    public class RavenDBConfig
     {
-        public string DatabaseFile { get; set; }
+        public string[] ServerUrls { get; set; }
+    }
+
+    public class DiscordConfig
+    {
+        private string _botToken;
+        public string BotToken
+        {
+            get
+            {
+                return _botToken;
+            }
+            set
+            {
+                _botToken = new Helpers.CryptoHelper().DecryptString(value);
+            }
+        }
+        public ulong ChannelId { get; set; }
     }
 
     public class BitfinexConfig
@@ -63,58 +80,10 @@ namespace PyroNexusTradingAlertBot
         }
     }
 
-    public class CoinTrackingConfig
-    {
-        public string Cookie1 { get; set; }
-        public string Cookie2 { get; set; }
-        public string ApiKey { get; set; }
-        public string ApiSecret { get; set; }
-        public List<CoinTrackingUpdateJob> UpdateJobs { get; set; }
-
-        private static int _minimumUpdateJobsRefreshInterval = 1;
-        private static int _defaultUpdateJobsRefreshInterval = 3;
-        private int _updateJobsRefreshInterval;
-        public int UpdateJobsRefreshInterval {
-            get
-            {
-                switch (_updateJobsRefreshInterval)
-                {
-                    case 0:
-                        return _defaultUpdateJobsRefreshInterval;
-                    case int number when number < _minimumUpdateJobsRefreshInterval:
-                        return _minimumUpdateJobsRefreshInterval;
-                    default:
-                        return _updateJobsRefreshInterval;
-                }
-            }
-            set
-            {
-                _updateJobsRefreshInterval = value;
-            }
-        }
-    }
-
     public class CoinTrackingUpdateJob
     {
         public string Name { get; set; }
         public string Path { get; set; }
         public int[] JobIds { get; set; }
-    }
-
-    public class DiscordConfig
-    {
-        private string _botToken;
-        public string BotToken
-        {
-            get
-            {
-                return _botToken;
-            }
-            set
-            {
-                _botToken = new Helpers.CryptoHelper().DecryptString(value);
-            }
-        }
-        public ulong ChannelId { get; set; }
     }
 }

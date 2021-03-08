@@ -49,26 +49,17 @@ namespace PyroNexusTradingAlertBot.Helpers
         {
             byte[] array;
 
-            using (Aes aes = Aes.Create())
+            using Aes aes = Aes.Create();
+            aes.Key = Key;
+            aes.IV = IV;
+
+            using MemoryStream memoryStream = new MemoryStream();
+            using CryptoStream cryptoStream = new CryptoStream(memoryStream, aes.CreateEncryptor(), CryptoStreamMode.Write);
+            using (StreamWriter streamWriter = new StreamWriter(cryptoStream))
             {
-                aes.Key = Key;
-                aes.IV = IV;
-
-                ICryptoTransform encryptor = aes.CreateEncryptor();
-
-                using (MemoryStream memoryStream = new MemoryStream())
-                {
-                    using (CryptoStream cryptoStream = new CryptoStream(memoryStream, encryptor, CryptoStreamMode.Write))
-                    {
-                        using (StreamWriter streamWriter = new StreamWriter(cryptoStream))
-                        {
-                            streamWriter.Write(plainText);
-                        }
-
-                        array = memoryStream.ToArray();
-                    }
-                }
+                streamWriter.Write(plainText);
             }
+            array = memoryStream.ToArray();
 
             return Convert.ToBase64String(array);
         }
@@ -77,24 +68,15 @@ namespace PyroNexusTradingAlertBot.Helpers
         {
             byte[] buffer = Convert.FromBase64String(cipherText);
 
-            using (Aes aes = Aes.Create())
-            {
-                aes.Key = Key;
-                aes.IV = IV;
+            using Aes aes = Aes.Create();
 
-                ICryptoTransform decryptor = aes.CreateDecryptor();
+            aes.Key = Key;
+            aes.IV = IV;
 
-                using (MemoryStream memoryStream = new MemoryStream(buffer))
-                {
-                    using (CryptoStream cryptoStream = new CryptoStream(memoryStream, decryptor, CryptoStreamMode.Read))
-                    {
-                        using (StreamReader streamReader = new StreamReader(cryptoStream))
-                        {
-                            return streamReader.ReadToEnd();
-                        }
-                    }
-                }
-            }
+            using MemoryStream memoryStream = new MemoryStream(buffer);
+            using CryptoStream cryptoStream = new CryptoStream(memoryStream, aes.CreateDecryptor(), CryptoStreamMode.Read);
+            using StreamReader streamReader = new StreamReader(cryptoStream);
+            return streamReader.ReadToEnd();
         }
     }
 }

@@ -11,6 +11,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using PyroNexusTradingAlertBot.Helpers;
+using Bitfinex.Net.Objects.RestV1Objects;
+using PyroNexusTradingAlertBot.Storage;
+using PyroNexusTradingAlertBot.Storage.Model;
 
 namespace PyroNexusTradingAlertBot.API.Exchanges
 {
@@ -19,6 +22,7 @@ namespace PyroNexusTradingAlertBot.API.Exchanges
         public string Key { get; set; }
         public string Secret { get; set; }
     }
+
     public class BitfinexExchangeService : IBitfinexExchangeService
     {
         readonly ILogger _logger;
@@ -41,12 +45,27 @@ namespace PyroNexusTradingAlertBot.API.Exchanges
 
         }
 
-        public void GetCurrencies()
+        public async Task Get<M>(M symbols) where M : class
+        {
+            switch (typeof(M))
+            {
+                case Type Symbol when Symbol == typeof(Symbols):
+                    await GetSymbols(symbols as Symbols);
+                    return;
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        private async Task GetSymbols(Symbols symbols)
         {
             using var client = new BitfinexClient();
 
-            var data = client.GetSymbolDetails();
-            var d2 = client.GetOrderHistory("tLINKF0:tUSTF0");
+            var data = await client.GetSymbolDetailsAsync();
+            foreach (var symbol in data.Data)
+            {
+                symbols.AllSymbols.Add(new Symbol(symbol));
+            }
         }
 
 

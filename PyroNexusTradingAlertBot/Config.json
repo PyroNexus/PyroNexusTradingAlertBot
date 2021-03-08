@@ -3,8 +3,8 @@
     "BlacklistedPairs": [ "USD", "USDT", "BUSD", "TUSD", "USDC", "DAI", "USDK" ],
     "PublishTradesRefreshInterval": 2
   },
-  "SqliteConfig": {
-    "DatabaseFile": "PyroNexusTradingAlertBot.db"
+  "RavenDBConfig": {
+    "ServerUrls": [ "http://127.0.0.1:8080" ]
   },
   "BitfinexConfig": {
     "Key": "wSMoPnyj7m6Q4U4hguIaDaAf5R8nKv+4ncOcpjfiqmHQ/cDPo1Ce3EuweRLdtPWy",

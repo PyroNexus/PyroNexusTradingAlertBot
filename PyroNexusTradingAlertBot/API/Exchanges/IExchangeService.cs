@@ -1,4 +1,6 @@
-﻿using System;
+﻿using PyroNexusTradingAlertBot.Storage;
+using PyroNexusTradingAlertBot.Storage.Model;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +10,8 @@ namespace PyroNexusTradingAlertBot.API.Exchanges
 {
     interface IExchangeService
     {
-        public void GetCurrencies();
+        public Task Get<M>(M symbols) where M : class;
+
+        //public Task GetSymbols(List<Symbol> symbols);
     }
 }

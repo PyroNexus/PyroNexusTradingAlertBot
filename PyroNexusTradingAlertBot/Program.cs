@@ -12,6 +12,8 @@ using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using PyroNexusTradingAlertBot.API.Exchanges;
+using PyroNexusTradingAlertBot.Storage.Model;
+using PyroNexusTradingAlertBot.Storage.RavenDB;
 
 namespace PyroNexusTradingAlertBot
 {
@@ -32,8 +34,8 @@ namespace PyroNexusTradingAlertBot
             }
 
             public GlobalConfig Global => Get<GlobalConfig>();
+            public RavenDBConfig RavenDB => Get<RavenDBConfig>();
             public DiscordConfig Discord => Get<DiscordConfig>();
-            public SqliteConfig Sqlite => Get<SqliteConfig>();
             public BitfinexConfig Bitfinex => Get<BitfinexConfig>();
         }
 
@@ -48,20 +50,20 @@ namespace PyroNexusTradingAlertBot
 
             _services = new ServiceCollection()
                 .AddOptions()
-                .Configure<BitfinexExchangeServiceOptions>(options =>
+                .Configure<RavenDBServiceOptions>(options =>
                 {
-                    options.Key = _config.Bitfinex.Key;
-                    options.Secret = _config.Bitfinex.Secret;
-                })
-                .Configure<SqliteOptions>(options =>
-                {
-                    options.DataSource = _config.Sqlite.DatabaseFile;
+                    options.ServerUrls = _config.RavenDB.ServerUrls;
                 })
                 .Configure<DiscordServiceOptions>(options =>
                 {
                     options.BotToken = _config.Discord.BotToken;
                 })
-                .AddSingleton<ISqliteService, SqliteService>()
+                .Configure<BitfinexExchangeServiceOptions>(options =>
+                {
+                    options.Key = _config.Bitfinex.Key;
+                    options.Secret = _config.Bitfinex.Secret;
+                })
+                .AddSingleton<IRavenDBService, RavenDBService>()
                 .AddSingleton<IDiscordService, DiscordService>()
                 .AddSingleton<IBitfinexExchangeService, BitfinexExchangeService>()
                 //.AddSingleton<ICoinTrackingService.LocalImport, CoinTrackingService.LocalImport>()
@@ -77,7 +79,15 @@ namespace PyroNexusTradingAlertBot
                 })
                 .BuildServiceProvider();
 
-            _services.GetService<IBitfinexExchangeService>().GetCurrencies();
+            //_services.GetService<IRavenDBService>().Instance();
+
+            var symbols = new Symbols();
+            //await _services.GetService<IBitfinexExchangeService>().Get(symbols);
+            _services.GetService<IRavenDBService>().Insert(symbols, "Bitfinex");
+
+
+            
+
 
             //IOptions<PublishTradesOptions> publishTradesOptions = Options.Create(new PublishTradesOptions()
             //{
@@ -102,6 +112,7 @@ namespace PyroNexusTradingAlertBot
             //    .TradesTask(_config.Discord.ChannelId, _config.Global.BlacklistedPairs);
 
             await Task.Delay(-1);
+            _services.GetService<IRavenDBService>().Dispose();
         }
     }
 }
